@@ -1,6 +1,9 @@
 # Environnement
 .env
 
+# Briefs générés
+brief_*.txt
+
 # Python
 __pycache__/
 *.py[cod]

@@ -269,7 +269,21 @@ def main():
     news = get_news()
     weather = get_weather()
     summary = build_summary(prices=prices, news=news, weather=weather)
-    send_email(summary)
+
+    print(summary)
+
+    filename = f"brief_{datetime.now(timezone.utc).strftime('%Y%m%d')}.txt"
+    with open(filename, "w", encoding="utf-8") as handle:
+        handle.write(summary or "")
+    print(f"\n[Brief sauvegardé dans {filename}]")
+
+    try:
+        send_email(summary)
+        print("[Email envoyé avec succès]")
+    except RuntimeError as exc:
+        print(f"[Email non envoyé : {exc}]")
+    except smtplib.SMTPException as exc:
+        print(f"[Échec de l'envoi de l'email : {exc}]")
 
 
 if __name__ == "__main__":
