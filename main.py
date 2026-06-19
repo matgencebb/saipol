@@ -1,8 +1,10 @@
 """colza-brief : génère et envoie un résumé quotidien (cours, actualités, météo)."""
 
+import json
 import os
 
 import yfinance as yf
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,6 +15,20 @@ TICKERS = {
     "soybean_oil": "ZL=F",
     "soybean_meal": "ZM=F",
 }
+
+ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+
+ANALYST_SYSTEM_PROMPT = """Tu es analyste sur un desk de trading de colza. \
+À partir des données fournies (prix, spreads, news, météo des zones de \
+production), rédige un brief matinal en français, structuré ainsi :
+
+1. Prix & mouvements clés (MATIF colza, contexte crush avec soyoil/soymeal)
+2. Facteurs du jour (news, géopolitique, logistique)
+3. Météo & récoltes (impact sur l'offre UE/Canada/Ukraine/Australie)
+4. À surveiller aujourd'hui
+
+Sois factuel, concis, orienté trading. Pas de blabla. Si une donnée manque, \
+ne l'invente pas : signale-le brièvement."""
 
 
 def _fetch_ticker(ticker):
@@ -76,9 +92,36 @@ def get_weather():
     pass
 
 
-def build_summary():
-    """Construit le résumé à partir des données collectées."""
-    pass
+def build_summary(prices=None, news=None, weather=None):
+    """Génère le brief matinal via l'API Anthropic.
+
+    Agrège les données collectées (prix/spreads, actualités, météo des zones
+    de production) et demande à Claude de rédiger un brief structuré, factuel
+    et orienté trading. Retourne le texte du brief.
+    """
+    payload = {
+        "prix": prices,
+        "news": news,
+        "meteo": weather,
+    }
+
+    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+    user_content = (
+        "Données du jour (format JSON) :\n\n"
+        f"{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
+    )
+
+    message = client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=1500,
+        system=ANALYST_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_content}],
+    )
+
+    return "".join(
+        block.text for block in message.content if getattr(block, "type", None) == "text"
+    )
 
 
 def send_email():
@@ -90,7 +133,7 @@ def main():
     prices = get_prices()
     news = get_news()
     weather = get_weather()
-    summary = build_summary()
+    summary = build_summary(prices=prices, news=news, weather=weather)
     send_email()
 
 
