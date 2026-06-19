@@ -4,8 +4,9 @@ import json
 import os
 
 import yfinance as yf
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -16,7 +17,7 @@ TICKERS = {
     "soybean_meal": "ZM=F",
 }
 
-ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 ANALYST_SYSTEM_PROMPT = """Tu es analyste sur un desk de trading de colza. \
 À partir des données fournies (prix, spreads, news, météo des zones de \
@@ -93,10 +94,10 @@ def get_weather():
 
 
 def build_summary(prices=None, news=None, weather=None):
-    """Génère le brief matinal via l'API Anthropic.
+    """Génère le brief matinal via l'API Gemini.
 
     Agrège les données collectées (prix/spreads, actualités, météo des zones
-    de production) et demande à Claude de rédiger un brief structuré, factuel
+    de production) et demande à Gemini de rédiger un brief structuré, factuel
     et orienté trading. Retourne le texte du brief.
     """
     payload = {
@@ -105,23 +106,23 @@ def build_summary(prices=None, news=None, weather=None):
         "meteo": weather,
     }
 
-    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     user_content = (
         "Données du jour (format JSON) :\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
     )
 
-    message = client.messages.create(
-        model=ANTHROPIC_MODEL,
-        max_tokens=1500,
-        system=ANALYST_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}],
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=user_content,
+        config=types.GenerateContentConfig(
+            system_instruction=ANALYST_SYSTEM_PROMPT,
+            max_output_tokens=1500,
+        ),
     )
 
-    return "".join(
-        block.text for block in message.content if getattr(block, "type", None) == "text"
-    )
+    return response.text
 
 
 def send_email():

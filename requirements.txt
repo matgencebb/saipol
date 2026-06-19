@@ -1,4 +1,4 @@
 requests
 yfinance
-anthropic
+google-genai
 python-dotenv
