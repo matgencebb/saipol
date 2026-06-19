@@ -118,7 +118,7 @@ def build_summary(prices=None, news=None, weather=None):
         contents=user_content,
         config=types.GenerateContentConfig(
             system_instruction=ANALYST_SYSTEM_PROMPT,
-            max_output_tokens=1500,
+            max_output_tokens=4096,
         ),
     )
 
